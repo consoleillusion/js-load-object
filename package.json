@@ -1,13 +1,33 @@
 {
   "name": "load-object",
-  "version": "1.8.5",
-  "description": "Takes a path to a file locally or remotely and loads that file into a Javascript Object.",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Load data files (JSON, YAML, TOML, XML, HTML, Markdown, CBOR, Dhall) from local paths or URLs into JavaScript values.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "load-object": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20",
+    "bun": ">=1.0.0"
+  },
   "scripts": {
-    "test": "node_modules/tap/bin/run.js --reporter=specy spec/test.js",
-    "lint": "node_modules/eslint/bin/eslint.js bin/* spec/* src/* index.js --fix",
-    "cloc": "cloc --vcs git",
-    "precommit": "npm run lint; npm run test; npm run cloc; rm ./package-lock.json"
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "dev": "bun run src/cli.ts",
+    "prepublishOnly": "bun run build"
   },
   "repository": {
     "type": "git",
@@ -15,49 +35,35 @@
   },
   "keywords": [
     "json",
-    "markdown",
     "yaml",
     "toml",
     "cbor",
     "dhall",
-    "undici",
+    "xml",
+    "html",
+    "markdown",
     "load",
     "parse",
-    "parser",
-    "html",
-    "xml",
-    "fetch",
-    "object",
-    "utility"
+    "bun",
+    "typescript"
   ],
   "author": "Raymond Smith",
   "license": "MIT",
-  "type": "module",
   "dependencies": {
     "@iarna/toml": "^3.0.0",
-    "@ipld/dag-cbor": "^7.0.3",
-    "axios": "^1.1.3",
-    "fast-xml-parser": "^4.0.11",
+    "@ipld/dag-cbor": "^9.2.2",
+    "cmd-ts": "^0.14.0",
+    "fast-xml-parser": "^4.5.1",
     "js-yaml": "^4.1.0",
-    "json-cycle": "^1.3.0",
-    "marked": "^4.1.1",
-    "parse-path": "^7.0.0",
-    "parse5": "^7.1.1",
-    "ramda": "^0.28.0",
-    "shelljs": "^0.8.5"
+    "marked": "^12.0.2",
+    "parse5": "^7.2.1",
+    "ramda": "^0.30.1"
   },
   "devDependencies": {
-    "ansi-colors": "^4.1.3",
-    "cloc": "^2.10.0",
-    "codecov": "^3.8.3",
-    "eslint": "^8.24.0",
-    "eslint-config-hardcore": "^25.0.0",
-    "eslint-config-standard": "^17.0.0",
-    "eslint-plugin-functional": "^4.4.1",
-    "eslint-plugin-import": "^2.26.0",
-    "eslint-plugin-n": "^15.3.0",
-    "eslint-plugin-promise": "^6.0.1",
-    "nyc": "^15.1.0",
-    "tap": "^16.3.0"
+    "@types/bun": "^1.1.14",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.1",
+    "@types/ramda": "^0.30.2",
+    "typescript": "^5.7.2"
   }
 }

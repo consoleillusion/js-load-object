@@ -1,5 +1,9 @@
-node_modules
-package-lock.json
-.nyc_output
-coverage
-ignored
+node_modules/
+dist/
+coverage/
+.nyc_output/
+ignored/
+*.log
+.DS_Store
+bun.lockb
+
