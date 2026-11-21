@@ -47,9 +47,16 @@ describe("cli", () => {
     expect(stdout).toContain("a: 1");
   });
 
+  test("loads dhall without any flag", async () => {
+    const { stdout, stderr, exitCode } = await runCli([resolve(fixtures, "script.dhall")]);
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(JSON.parse(stdout)).toEqual({ name: "dhall-fixture", count: 2 });
+  });
+
   test("reports errors with non-zero exit", async () => {
-    const { stderr, exitCode } = await runCli([resolve(fixtures, "script.dhall")]);
+    const { stderr, exitCode } = await runCli([resolve(fixtures, "does-not-exist.json")]);
     expect(exitCode).not.toBe(0);
-    expect(stderr).toContain("DISABLED_FORMAT");
+    expect(stderr).toContain("NOT_FOUND");
   });
 });

@@ -4,10 +4,8 @@ import { XMLBuilder } from "fast-xml-parser";
 import { serialize as serializeHtml } from "parse5";
 import { encode as cborEncode } from "@ipld/dag-cbor";
 import { createLoadError } from "./errors.js";
-import { createProcDeps } from "./io/proc.js";
-import { resolveOptions } from "./options.js";
 import { createDhallStringifier } from "./parsers/dhall.js";
-import type { Format, LoadOptions, ProcDeps } from "./types.js";
+import type { Format, LoadOptions } from "./types.js";
 
 const xmlBuilder = new XMLBuilder({ ignoreAttributes: false, format: true, suppressEmptyNode: true });
 
@@ -118,12 +116,10 @@ export const stringifyCbor = (value: unknown): Uint8Array => {
   }
 };
 
-export const createStringify = (procInput?: ProcDeps) => {
-  const proc = procInput ?? createProcDeps();
-  const dhallStringify = createDhallStringifier(proc);
+export const createStringify = () => {
+  const dhallStringify = createDhallStringifier();
 
-  const stringify = async (value: unknown, format: Format, options?: LoadOptions): Promise<string | Uint8Array> => {
-    const resolvedOptions = resolveOptions(options, process.cwd());
+  const stringify = async (value: unknown, format: Format, _options?: LoadOptions): Promise<string | Uint8Array> => {
     switch (format) {
       case "json":
         return stringifyJson(value);
@@ -141,14 +137,6 @@ export const createStringify = (procInput?: ProcDeps) => {
       case "cbor":
         return stringifyCbor(value);
       case "dhall":
-        if (!resolvedOptions.dhall.enabled) {
-          throw createLoadError({
-            code: "DISABLED_FORMAT",
-            message:
-              "Dhall support is disabled by default. Enable it with { dhall: { enabled: true } } or use stringifyDhall, and ensure json-to-dhall is installed.",
-            format,
-          });
-        }
         return dhallStringify(value);
       default:
         throw createLoadError({

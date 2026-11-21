@@ -17,7 +17,6 @@ export type {
   Format,
   LoadInput,
   LoadOptions,
-  DhallOptions,
   HttpOptions,
   LoadDeps,
   LoadErrorCode,

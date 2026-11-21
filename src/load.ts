@@ -2,7 +2,6 @@ import { fromPairs } from "ramda";
 import { createLoadError, toIoLoadError } from "./errors.js";
 import { createFsDeps } from "./io/fs.js";
 import { createHttpDeps, fetchResource, isBinaryFormat } from "./io/http.js";
-import { createProcDeps } from "./io/proc.js";
 import { resolveOptions } from "./options.js";
 import { formatFromPath } from "./path/format.js";
 import { childPath, resolveInput } from "./path/resolve.js";
@@ -30,23 +29,11 @@ export const parse = async (content: ParseContent, format: Format, options?: Loa
 export const createDefaultDeps = (): LoadDeps => ({
   fs: createFsDeps(),
   http: createHttpDeps(),
-  proc: createProcDeps(),
   cwd: () => process.cwd(),
 });
 
 const isFormatAllowed = (format: Format | null, options: ResolvedOptions): format is Format =>
   format !== null && options.formats.includes(format);
-
-const ensureFormatEnabled = (format: Format, options: ResolvedOptions): void => {
-  if (format === "dhall" && !options.dhall.enabled) {
-    throw createLoadError({
-      code: "DISABLED_FORMAT",
-      message:
-        "Dhall support is disabled by default. Enable it with { dhall: { enabled: true } } or use loadDhall/parseDhall, and ensure dhall-to-json is installed.",
-      format,
-    });
-  }
-};
 
 const readLocalContent = async (
   deps: LoadDeps,
@@ -70,8 +57,7 @@ const parseContent = async (
   options: ResolvedOptions,
   deps: LoadDeps
 ): Promise<unknown> => {
-  ensureFormatEnabled(format, options);
-  const registry = createParserRegistry(options, deps.proc);
+  const registry = createParserRegistry(options, { fs: deps.fs, http: deps.http });
   const parser = registry[format];
   if (!parser) {
     throw createLoadError({
@@ -171,10 +157,8 @@ const loadDirectoryResolved = async (
         const childResolved = resolveInput(fullPath, options.base);
         if (childResolved.kind !== "file") return null;
         const fmt = childResolved.format;
-        const knownAllowed = isFormatAllowed(fmt, options);
-        const dhallDisabled = fmt === "dhall" && !options.dhall.enabled;
-        if (!knownAllowed || dhallDisabled) {
-          // skip unknown/unsupported/disabled formats by default
+        if (!isFormatAllowed(fmt, options)) {
+          // skip unknown/unsupported formats by default
           return null;
         }
 
@@ -200,9 +184,9 @@ const loadDirectoryResolved = async (
 export interface Loader {
   (input: LoadInput, options?: LoadOptions): Promise<unknown>;
   load: (input: LoadInput, options?: LoadOptions) => Promise<unknown>;
-  loadDhall: (input: LoadInput, options?: Omit<LoadOptions, "dhall"> & { dhall?: Omit<NonNullable<LoadOptions["dhall"]>, "enabled"> }) => Promise<unknown>;
+  loadDhall: (input: LoadInput, options?: LoadOptions) => Promise<unknown>;
   parse: (content: ParseContent, format: Format, options?: LoadOptions) => Promise<unknown>;
-  parseDhall: (content: ParseContent, options?: Omit<LoadOptions, "dhall"> & { dhall?: Omit<NonNullable<LoadOptions["dhall"]>, "enabled"> }) => Promise<unknown>;
+  parseDhall: (content: ParseContent, options?: LoadOptions) => Promise<unknown>;
   stringify: (value: unknown, format: Format, options?: LoadOptions) => Promise<string | Uint8Array>;
   stringifyDhall: (value: unknown) => Promise<string>;
 }
@@ -212,7 +196,6 @@ export const createLoader = (depsInput?: Partial<LoadDeps>): Loader => {
   const deps: LoadDeps = {
     fs: depsInput?.fs ?? defaults.fs,
     http: depsInput?.http ?? defaults.http,
-    proc: depsInput?.proc ?? defaults.proc,
     cwd: depsInput?.cwd ?? defaults.cwd,
   };
 
@@ -259,21 +242,12 @@ export const createLoader = (depsInput?: Partial<LoadDeps>): Loader => {
     return parseContent(content, format, "<string>", resolvedOptions, deps);
   };
 
-  const loadDhall = async (
-    input: LoadInput,
-    options?: Omit<LoadOptions, "dhall"> & { dhall?: Omit<NonNullable<LoadOptions["dhall"]>, "enabled"> }
-  ): Promise<unknown> =>
-    load(input, { ...(options ?? {}), dhall: { enabled: true } });
+  const loadDhall = async (input: LoadInput, options?: LoadOptions): Promise<unknown> => load(input, options);
 
-  const parseDhall = async (
-    content: ParseContent,
-    _options?: Omit<LoadOptions, "dhall"> & { dhall?: Omit<NonNullable<LoadOptions["dhall"]>, "enabled"> }
-  ): Promise<unknown> => {
-    const resolvedOptions = resolveOptions({ dhall: { enabled: true } }, deps.cwd());
-    return parseContent(content, "dhall", "<dhall>", resolvedOptions, deps);
-  };
+  const parseDhall = async (content: ParseContent, options?: LoadOptions): Promise<unknown> =>
+    parseFn(content, "dhall", options);
 
-  const { stringify, stringifyDhall } = createStringify(deps.proc);
+  const { stringify, stringifyDhall } = createStringify();
 
   const fn = load as Loader;
   fn.load = load;

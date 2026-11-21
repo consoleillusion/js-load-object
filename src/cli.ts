@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 import { command, run, positional, string, option, flag, optional, boolean } from "cmd-ts";
 import { load, parse, stringify } from "./index.js";
 import { LoadError } from "./errors.js";
@@ -81,13 +80,6 @@ const app = command({
       description: "Recursively load directories (default: false)",
       defaultValueIsSerializable: true,
     }),
-    enableDhall: flag({
-      type: boolean,
-      long: "enable-dhall",
-      defaultValue: () => false,
-      description: "Explicitly enable Dhall parsing/stringifying (disabled by default for safety)",
-      defaultValueIsSerializable: true,
-    }),
   },
   handler: async (args) => {
     try {
@@ -98,9 +90,7 @@ const app = command({
         throw new Error("--base applies to path/URL sources, not --string input.");
       }
 
-      const dhallOptions = args.enableDhall ? { enabled: true as const } : undefined;
       const commonOptions: LoadOptions = {
-        ...(dhallOptions ? { dhall: dhallOptions } : {}),
         directory: { recursive: args.recursive },
       };
 
@@ -141,7 +131,7 @@ const app = command({
       }
 
       const outFormat = args.to ? asFormat(args.to, "output (--to)") : (inferOutputFormat(args.out) ?? "json");
-      const output = await stringify(value, outFormat, { ...(args.enableDhall ? { dhall: { enabled: true } } : {}) });
+      const output = await stringify(value, outFormat);
       await writeOutput(output, args.out);
     } catch (error) {
       if (error instanceof LoadError) {

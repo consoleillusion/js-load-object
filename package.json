@@ -23,7 +23,7 @@
     "bun": ">=1.0.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && bun run scripts/build.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "dev": "bun run src/cli.ts",
@@ -53,6 +53,7 @@
     "@iarna/toml": "^3.0.0",
     "@ipld/dag-cbor": "^9.2.2",
     "cmd-ts": "^0.14.0",
+    "dhall-wasm": "github:consoleillusion/dhall-wasm#2e0e880a10feae9e9fd28ff57f33da97804b4c77",
     "fast-xml-parser": "^4.5.1",
     "js-yaml": "^4.1.0",
     "marked": "^12.0.2",

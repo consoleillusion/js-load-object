@@ -21,25 +21,10 @@ export const DEFAULT_HTTP: Required<Omit<HttpOptions, "headers">> & { readonly h
   headers: {},
 };
 
-export const DEFAULT_DHALL: { readonly enabled: boolean } = {
-  enabled: false,
-};
-
-// Internal safe defaults for external Dhall tools (not user-configurable via CLI/API for safety/simplicity)
-export const DHALL_TOOL_DEFAULTS = {
-  parseCommand: "dhall-to-json",
-  stringifyCommand: "json-to-dhall",
-  args: [] as readonly string[],
-  stringifyArgs: [] as readonly string[],
-  timeoutMs: 10_000,
-  maxBytes: 1_048_576,
-} as const;
-
 export const defaultOptions = (cwd: string): ResolvedOptions => ({
   base: cwd,
   formats: DEFAULT_FORMATS,
   http: DEFAULT_HTTP,
-  dhall: DEFAULT_DHALL,
   directory: {
     recursive: false,
     includeUnknown: false,
@@ -79,10 +64,6 @@ export const resolveOptions = (options: LoadOptions | undefined, cwd: string): R
       ...(options.http ?? {}),
       allowedProtocols,
       headers: options.http?.headers ?? baseDefaults.http.headers,
-    },
-    dhall: {
-      ...baseDefaults.dhall,
-      ...(options.dhall ?? {}),
     },
     directory: {
       ...baseDefaults.directory,

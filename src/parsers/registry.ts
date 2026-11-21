@@ -7,7 +7,7 @@ import { parseMd } from "./md.js";
 import { parseToml } from "./toml.js";
 import { parseXml } from "./xml.js";
 import { parseYaml } from "./yaml.js";
-import type { ProcDeps } from "../types.js";
+import type { DhallParserDeps } from "./dhall.js";
 
 export const builtInParsers = {
   json: parseJson,
@@ -20,9 +20,12 @@ export const builtInParsers = {
   cbor: parseCbor,
 } as const satisfies Partial<Record<Format, Parser>>;
 
-export const createParserRegistry = (options: ResolvedOptions, proc: ProcDeps): Readonly<Partial<Record<Format, Parser>>> => {
+export const createParserRegistry = (
+  options: ResolvedOptions,
+  deps?: DhallParserDeps
+): Readonly<Partial<Record<Format, Parser>>> => {
   const custom = options.parsers ?? {};
-  const registry: Partial<Record<Format, Parser>> = {
+  return {
     json: (custom.json as Parser | undefined) ?? builtInParsers.json,
     yaml: (custom.yaml as Parser | undefined) ?? builtInParsers.yaml,
     yml: (custom.yaml as Parser | undefined) ?? builtInParsers.yml,
@@ -31,11 +34,6 @@ export const createParserRegistry = (options: ResolvedOptions, proc: ProcDeps): 
     html: (custom.html as Parser | undefined) ?? builtInParsers.html,
     md: (custom.md as Parser | undefined) ?? builtInParsers.md,
     cbor: (custom.cbor as Parser | undefined) ?? builtInParsers.cbor,
+    dhall: (custom.dhall as Parser | undefined) ?? createDhallParser(deps, options),
   };
-
-  if (options.dhall.enabled) {
-    registry.dhall = createDhallParser(proc);
-  }
-
-  return registry;
 };

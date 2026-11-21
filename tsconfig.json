@@ -16,6 +16,10 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "dhall-wasm/packages/core/src/index.ts": ["./src/types/dhall-wasm.d.ts"]
+    },
     "types": ["node", "bun"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],

@@ -19,16 +19,10 @@ export interface HttpOptions {
   readonly headers?: Readonly<Record<string, string>>;
 }
 
-export interface DhallOptions {
-  /** Explicit opt-in required for Dhall parsing/stringifying (executes external dhall tools). */
-  readonly enabled?: boolean;
-}
-
 export interface LoadOptions {
   readonly base?: string | URL;
   readonly formats?: readonly Format[];
   readonly http?: HttpOptions;
-  readonly dhall?: DhallOptions;
   readonly directory?: {
     readonly recursive?: boolean;
     readonly includeUnknown?: boolean;
@@ -41,6 +35,7 @@ export interface LoadOptions {
     readonly toml?: (content: string) => unknown;
     readonly md?: (content: string) => unknown;
     readonly cbor?: (content: Uint8Array) => unknown | Promise<unknown>;
+    readonly dhall?: (content: string) => unknown | Promise<unknown>;
   };
 }
 
@@ -79,7 +74,6 @@ export type Stringifier = (value: unknown, context?: { readonly format: Format }
 
 export type LoadErrorCode =
   | "UNSUPPORTED_FORMAT"
-  | "DISABLED_FORMAT"
   | "RESOLVE_ERROR"
   | "NOT_FOUND"
   | "IO_ERROR"
@@ -87,8 +81,7 @@ export type LoadErrorCode =
   | "TIMEOUT"
   | "LIMIT_EXCEEDED"
   | "PARSE_ERROR"
-  | "SERIALIZE_ERROR"
-  | "EXTERNAL_TOOL_ERROR";
+  | "SERIALIZE_ERROR";
 
 export interface LoadErrorDetails {
   readonly code: LoadErrorCode;
@@ -119,34 +112,9 @@ export interface HttpDeps {
   readonly fetch: (url: string | URL, init?: RequestInit) => Promise<HttpResponseLike>;
 }
 
-export interface ProcResult {
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly exitCode: number;
-  readonly signal: NodeJS.Signals | null;
-  readonly timedOut: boolean;
-}
-
-export interface ProcRunOptions {
-  readonly input?: string | Uint8Array;
-  readonly cwd?: string;
-  readonly env?: Readonly<Record<string, string>>;
-  readonly timeoutMs?: number;
-  readonly maxBytes?: number;
-}
-
-export interface ProcDeps {
-  readonly execFile: (
-    command: string,
-    args: readonly string[],
-    options: ProcRunOptions
-  ) => Promise<ProcResult>;
-}
-
 export interface LoadDeps {
   readonly fs: FsDeps;
   readonly http: HttpDeps;
-  readonly proc: ProcDeps;
   readonly cwd: () => string;
 }
 
@@ -154,9 +122,6 @@ export interface ResolvedOptions {
   readonly base: string;
   readonly formats: readonly Format[];
   readonly http: Required<Omit<HttpOptions, "headers">> & { readonly headers: Readonly<Record<string, string>> };
-  readonly dhall: {
-    readonly enabled: boolean;
-  };
   readonly directory: {
     readonly recursive: boolean;
     readonly includeUnknown: boolean;

@@ -2,7 +2,7 @@
 
 Load, parse, stringify, and convert structured data across local files, directories, URLs, and inline strings.
 
-Supports **JSON, YAML (`.yaml`/`.yml`), TOML, XML, HTML, Markdown, CBOR, and Dhall** (Dhall is opt-in for safety). Built with **TypeScript** and designed to be used with **Bun** by default (also works with Node.js >= 20).
+Supports **JSON, YAML (`.yaml`/`.yml`), TOML, XML, HTML, Markdown, CBOR, and Dhall**. Dhall is evaluated in-process by the official Dhall engine compiled to WebAssembly via [`dhall-wasm`](https://github.com/consoleillusion/dhall-wasm); no external tools or opt-in flag are needed. Built with **TypeScript** and designed to be used with **Bun** by default (also works with Node.js >= 20).
 
 ## Features
 
@@ -12,7 +12,7 @@ Supports **JSON, YAML (`.yaml`/`.yml`), TOML, XML, HTML, Markdown, CBOR, and Dha
 - Directory loading with optional recursion
 - TypeScript types and typed `LoadError`s
 - Safe remote fetching with protocol allowlist, timeout, and max-size limits
-- **Safe, opt-in Dhall support** (no shell, no global stdio monkeypatching; external tools executed with bounded, checked child processes)
+- **Dhall support without flags or external tools** (WASM engine), including local and HTTP imports
 - **CLI** (`load-object`) exposing the same core capabilities as the library
 
 ## Install
@@ -54,12 +54,12 @@ const asCbor = await stringify(fromJson, "cbor");   // Uint8Array
 const value = await load("./data.json");
 const yamlText = await stringify(value, "yaml");
 
-// Dhall is opt-in (requires external dhall-json tools on PATH)
-const dhallVal  = await loadDhall("./config.dhall");           // uses dhall-to-json
-const dhallText = await stringifyDhall({ a: 1 });              // uses json-to-dhall
-// or explicitly via options:
-await load("./config.dhall", { dhall: { enabled: true } });
-await stringify({ a: 1 }, "dhall", { dhall: { enabled: true } });
+// Dhall works like any other format - no flag, no external tools
+const dhallVal  = await load("./config.dhall");
+const dhallText = await stringify({ a: 1 }, "dhall");
+// convenience aliases are still available
+const sameValue = await loadDhall("./config.dhall");
+const sameText  = await stringifyDhall({ a: 1 });
 ```
 
 ### Main API
@@ -74,16 +74,16 @@ await stringify({ a: 1 }, "dhall", { dhall: { enabled: true } });
   Serialize a value to the given format. Returns a `string` for text formats and a `Uint8Array` for binary formats (e.g. CBOR).
 
 - **`loadDhall(input, options?)`, `parseDhall(content, options?)`, `stringifyDhall(value)`**  
-  Dhall helpers (opt-in; see [Dhall](#dhall-opt-in)).
+  Convenience aliases for `load`/`parse`/`stringify` with the `dhall` format (see [Dhall](#dhall)).
 
 - **`createLoader(deps?)`**  
-  Create a loader instance with injectable dependencies (`fs`, `http`, `proc`, `cwd`) for testing/customization. Default instance is exported as `defaultLoader`.
+  Create a loader instance with injectable dependencies (`fs`, `http`, `cwd`) for testing/customization. Default instance is exported as `defaultLoader`.
 
 - **Per-format helpers**: `parseJson|Yaml|Toml|Xml|Html|Md|Cbor`, `stringifyJson|Yaml|Toml|Xml|Html|Md|Cbor`, `createDhallParser`, `createDhallStringifier`.
 
 - **Path/format helpers**: `resolveInput`, `formatFromPath`, `formatFromUrl`.
 
-- **`LoadError`**: thrown with a `code` — `UNSUPPORTED_FORMAT`, `DISABLED_FORMAT`, `RESOLVE_ERROR`, `NOT_FOUND`, `IO_ERROR`, `HTTP_ERROR`, `TIMEOUT`, `LIMIT_EXCEEDED`, `PARSE_ERROR`, `SERIALIZE_ERROR`, `EXTERNAL_TOOL_ERROR`.
+- **`LoadError`**: thrown with a `code` — `UNSUPPORTED_FORMAT`, `RESOLVE_ERROR`, `NOT_FOUND`, `IO_ERROR`, `HTTP_ERROR`, `TIMEOUT`, `LIMIT_EXCEEDED`, `PARSE_ERROR`, `SERIALIZE_ERROR`.
 
 ## CLI
 
@@ -112,10 +112,10 @@ load-object ./configs                  # load directory (non-recursive)
 load-object ./configs --recursive      # recursive
 load-object ./configs -r --to yaml     # load/merge result serialized to yaml
 
-# Dhall (opt-in only flag)
-load-object ./config.dhall --enable-dhall
-load-object -s '{ a = 1 }' -f dhall -t json --enable-dhall
-load-object ./data.json -t dhall --enable-dhall
+# Dhall (no flag required)
+load-object ./config.dhall
+load-object -s '{ a = 1 }' -f dhall -t json
+load-object ./data.json -t dhall
 ```
 
 **Arguments / options**
@@ -126,7 +126,6 @@ load-object ./data.json -t dhall --enable-dhall
 - `-t, --to <format>` — output format (`json|yaml|yml|toml|xml|html|md|cbor|dhall`); default `json` or inferred from `--out` extension
 - `-o, --out <file>` — write output to file (binary-safe for CBOR)
 - `-r, --recursive` — recursively load directories
-- `--enable-dhall` — explicitly enable Dhall parsing/stringifying (no other Dhall-specific CLI options)
 
 ## Path and URL resolution
 
@@ -139,7 +138,7 @@ load-object ./data.json -t dhall --enable-dhall
 ## Directory loading
 
 - Non-recursive by default; pass `options.directory.recursive = true` (CLI: `--recursive`) to recurse into subdirectories.
-- Loads entries whose detected format is supported; skips unknown/unsupported formats and skips `.dhall` unless Dhall is enabled.
+- Loads entries whose detected format is supported (including `.dhall`); skips unknown/unsupported formats.
 - Returns an object keyed by **entry name including extension** (e.g. `{ "config.json": { ... } }`), with children resolved via `path.join`.
 
 ## Options
@@ -155,9 +154,6 @@ interface LoadOptions {
     followRedirects?: boolean;         // default: true
     headers?: Readonly<Record<string, string>>;
   };
-  dhall?: {
-    enabled?: boolean;                 // default: false (opt-in required)
-  };
   directory?: {
     recursive?: boolean;               // default: false
     includeUnknown?: boolean;          // default: false
@@ -170,17 +166,21 @@ interface LoadOptions {
     toml?: (content: string) => unknown;
     md?: (content: string) => unknown;
     cbor?: (content: Uint8Array) => unknown | Promise<unknown>;
+    dhall?: (content: string) => unknown | Promise<unknown>;
   };
 }
 ```
 
-## Dhall (opt-in)
+## Dhall
 
-Dhall support is **disabled by default** and must be explicitly enabled (`{ dhall: { enabled: true } }`, `loadDhall/parseDhall/stringifyDhall`, or CLI `--enable-dhall`). This is the only Dhall control exposed.
+Dhall is loaded and stringified exactly like the other formats: `load("./config.dhall")`, `parse(text, "dhall")`, and `stringify(value, "dhall")`. There is no opt-in flag and no external `dhall-to-json`/`json-to-dhall` toolchain.
 
-- **Parsing** uses the external `dhall-to-json` tool; **stringifying** uses `json-to-dhall` (from `dhall-json`). Ensure the required tool is installed and on `PATH`.
-- Execution is **safe by implementation**: direct child process with `shell: false`, input via stdin, captured stdout/stderr (no global `process.stdout/stderr` mutation), time and output-size limits, and strict exit-code/stderr checks.
-- **Security note:** Dhall is an evaluated configuration language and may resolve imports depending on tool/version/configuration. Treat untrusted `.dhall` input accordingly.
+- Parsing uses the official Dhall engine compiled to WebAssembly by [`dhall-wasm`](https://github.com/consoleillusion/dhall-wasm). The engine artifact ships with the pinned git dependency; consumers do not need Haskell, Nix, or any CLI tools.
+- Relative/local imports resolve against the source file (or `options.base` for inline content) using the injected `fs` dependency.
+- `http(s)` imports use the same `options.http` settings as remote loads: protocol allowlist, timeout, max bytes, headers, and redirects.
+- Imports with `sha256:` integrity annotations are verified before evaluation. `env:` imports are rejected.
+- Set `DHALL_WASM_ENGINE` to override the engine WASM location if needed.
+- Dhall is an evaluated language: treat untrusted expressions and their imports with the same care you would treat executable configuration.
 
 ## Format notes
 
@@ -193,8 +193,8 @@ Dhall support is **disabled by default** and must be explicitly enabled (`{ dhal
 ## Security notes
 
 - Remote fetches use `fetch` with abort timeout, response size limits, allowed protocols, redirect handling, and non-2xx rejection (configurable via `options.http`).
-- Dhall runs out-of-process only when explicitly enabled and with bounded, non-shell execution.
-- Parsing/serialization libraries are used for data handling; loaded content is not executed.
+- Dhall is evaluated by a WebAssembly engine; no child processes or shell are involved. Imports are resolved through the same fs/http dependencies and limits as normal loads.
+- Other parsing/serialization libraries are used for data handling; loaded content is not executed.
 
 ## Development
 

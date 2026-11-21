@@ -58,15 +58,15 @@ describe("local file loading", () => {
     expect(res).toEqual({ name: "local-json", value: 42 });
   });
 
-  test("loads directory (non-recursive, skips unknown and disabled dhall)", async () => {
+  test("loads directory (non-recursive, skips unknown formats)", async () => {
     const res = await load(fixtures) as Record<string, unknown>;
     expect(res["data.json"]).toEqual({ name: "local-json", value: 42 });
     expect(res["data.yaml"]).toMatchObject({ name: "local-yaml" });
     expect(res["config.toml"]).toBeTruthy();
     // unknown .txt skipped
     expect(Object.prototype.hasOwnProperty.call(res, "ignore.txt")).toBe(false);
-    // .dhall skipped when not enabled
-    expect(Object.prototype.hasOwnProperty.call(res, "script.dhall")).toBe(false);
+    // .dhall loads like any other known format
+    expect(res["script.dhall"]).toEqual({ name: "dhall-fixture", count: 2 });
     // subdir not included when non-recursive
     expect(Object.prototype.hasOwnProperty.call(res, "subdir")).toBe(false);
   });
@@ -74,9 +74,5 @@ describe("local file loading", () => {
   test("throws typed error for unsupported/missing", async () => {
     await expect(load(join(fixtures, "ignore.txt"))).rejects.toBeInstanceOf(LoadError);
     await expect(load(join(fixtures, "does-not-exist.json"))).rejects.toMatchObject({ code: "NOT_FOUND" });
-  });
-
-  test("throws DISABLED_FORMAT for dhall by default", async () => {
-    await expect(load(join(fixtures, "script.dhall"))).rejects.toMatchObject({ code: "DISABLED_FORMAT" });
   });
 });
