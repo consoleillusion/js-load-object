@@ -20,10 +20,10 @@ import type {
 import { LoadError } from "./errors.js";
 import { createStringify } from "./stringify.js";
 
-export const parse = async (content: ParseContent, format: Format, options?: LoadOptions): Promise<unknown> => {
+export const parse = async <T = unknown>(content: ParseContent, format: Format, options?: LoadOptions): Promise<T> => {
   const deps = createDefaultDeps();
   const resolvedOptions = resolveOptions(options, deps.cwd());
-  return parseContent(content, format, "<string>", resolvedOptions, deps);
+  return (await parseContent(content, format, "<string>", resolvedOptions, deps)) as T;
 };
 
 export const createDefaultDeps = (): LoadDeps => ({
@@ -182,11 +182,11 @@ const loadDirectoryResolved = async (
 };
 
 export interface Loader {
-  (input: LoadInput, options?: LoadOptions): Promise<unknown>;
-  load: (input: LoadInput, options?: LoadOptions) => Promise<unknown>;
-  loadDhall: (input: LoadInput, options?: LoadOptions) => Promise<unknown>;
-  parse: (content: ParseContent, format: Format, options?: LoadOptions) => Promise<unknown>;
-  parseDhall: (content: ParseContent, options?: LoadOptions) => Promise<unknown>;
+  <T = unknown>(input: LoadInput, options?: LoadOptions): Promise<T>;
+  load: <T = unknown>(input: LoadInput, options?: LoadOptions) => Promise<T>;
+  loadDhall: <T = unknown>(input: LoadInput, options?: LoadOptions) => Promise<T>;
+  parse: <T = unknown>(content: ParseContent, format: Format, options?: LoadOptions) => Promise<T>;
+  parseDhall: <T = unknown>(content: ParseContent, options?: LoadOptions) => Promise<T>;
   stringify: (value: unknown, format: Format, options?: LoadOptions) => Promise<string | Uint8Array>;
   stringifyDhall: (value: unknown) => Promise<string>;
 }
@@ -199,12 +199,12 @@ export const createLoader = (depsInput?: Partial<LoadDeps>): Loader => {
     cwd: depsInput?.cwd ?? defaults.cwd,
   };
 
-  const load = async (input: LoadInput, options?: LoadOptions): Promise<unknown> => {
+  const load = async <T = unknown>(input: LoadInput, options?: LoadOptions): Promise<T> => {
     const resolvedOptions = resolveOptions(options, deps.cwd());
     const resolved = resolveInput(input, resolvedOptions.base);
 
     if (resolved.kind === "url") {
-      return loadUrlResolved(deps, resolved, resolvedOptions);
+      return (await loadUrlResolved(deps, resolved, resolvedOptions)) as T;
     }
 
     // local path: determine file vs directory via fs stat
@@ -217,7 +217,7 @@ export const createLoader = (depsInput?: Partial<LoadDeps>): Loader => {
 
     if (st.isDirectory()) {
       const dirResolved: ResolvedDirectory = { kind: "directory", path: resolved.path, source: resolved.source };
-      return loadDirectoryResolved(deps, dirResolved, resolvedOptions, load);
+      return (await loadDirectoryResolved(deps, dirResolved, resolvedOptions, load)) as T;
     }
 
     if (st.isFile()) {
@@ -227,7 +227,7 @@ export const createLoader = (depsInput?: Partial<LoadDeps>): Loader => {
         format: formatFromPath(resolved.path),
         source: resolved.source,
       };
-      return loadFileResolved(deps, fileResolved, resolvedOptions);
+      return (await loadFileResolved(deps, fileResolved, resolvedOptions)) as T;
     }
 
     throw createLoadError({
@@ -237,15 +237,15 @@ export const createLoader = (depsInput?: Partial<LoadDeps>): Loader => {
     });
   };
 
-  const parseFn = async (content: ParseContent, format: Format, options?: LoadOptions): Promise<unknown> => {
+  const parseFn = async <T = unknown>(content: ParseContent, format: Format, options?: LoadOptions): Promise<T> => {
     const resolvedOptions = resolveOptions(options, deps.cwd());
-    return parseContent(content, format, "<string>", resolvedOptions, deps);
+    return (await parseContent(content, format, "<string>", resolvedOptions, deps)) as T;
   };
 
-  const loadDhall = async (input: LoadInput, options?: LoadOptions): Promise<unknown> => load(input, options);
+  const loadDhall = async <T = unknown>(input: LoadInput, options?: LoadOptions): Promise<T> => load<T>(input, options);
 
-  const parseDhall = async (content: ParseContent, options?: LoadOptions): Promise<unknown> =>
-    parseFn(content, "dhall", options);
+  const parseDhall = async <T = unknown>(content: ParseContent, options?: LoadOptions): Promise<T> =>
+    parseFn<T>(content, "dhall", options);
 
   const { stringify, stringifyDhall } = createStringify();
 

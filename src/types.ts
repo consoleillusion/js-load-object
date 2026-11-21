@@ -118,6 +118,16 @@ export interface LoadDeps {
   readonly cwd: () => string;
 }
 
+export interface DhallTypesOptions {
+  readonly name?: string;
+  readonly validator?: boolean;
+}
+
+export interface GeneratedDhallTypes {
+  readonly declaration: string;
+  readonly module: string;
+}
+
 export interface ResolvedOptions {
   readonly base: string;
   readonly formats: readonly Format[];

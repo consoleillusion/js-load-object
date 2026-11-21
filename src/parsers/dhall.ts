@@ -5,9 +5,15 @@ import {
   evaluate,
   formatDiagnostic,
   formatValue,
+  generateTypesFromSource,
   initializeEngine,
+  typeCheck,
 } from "dhall-wasm/packages/core/src/index.ts";
-import type { DhallEnvironment, ImportRequest } from "dhall-wasm/packages/core/src/index.ts";
+import type {
+  DhallEnvironment,
+  GeneratedTypes,
+  ImportRequest,
+} from "dhall-wasm/packages/core/src/index.ts";
 import { createLoadError } from "../errors.js";
 import { createFsDeps } from "../io/fs.js";
 import { createHttpDeps, fetchResource } from "../io/http.js";
@@ -38,7 +44,7 @@ const configuredWasmUrl = (): URL | undefined => {
 
 let engineInitialization: Promise<void> | undefined;
 
-const ensureEngine = async (): Promise<void> => {
+export const ensureEngine = async (): Promise<void> => {
   engineInitialization ??= initializeEngine({ wasmUrl: configuredWasmUrl() ?? bundledWasmUrl() }).then(
     () => undefined,
     (error: unknown) => {
@@ -94,7 +100,7 @@ export interface DhallParserDeps {
 const parserDeps = (deps?: DhallParserDeps): DhallParserDeps =>
   deps ?? { fs: createFsDeps(), http: createHttpDeps() };
 
-const createEnvironment = (
+export const createEnvironment = (
   deps: DhallParserDeps,
   context: ParseContext,
   options: ResolvedOptions
@@ -166,6 +172,62 @@ export const createDhallStringifier = () => async (value: unknown): Promise<stri
     throw createLoadError({
       code: "SERIALIZE_ERROR",
       message: `Failed to stringify Dhall: ${error instanceof Error ? error.message : String(error)}`,
+      format: "dhall",
+      cause: error,
+    });
+  }
+};
+
+export interface GenerateDhallTypesOptions {
+  readonly name: string;
+  readonly validator?: boolean;
+  readonly sourcePath?: string;
+  readonly environment?: DhallEnvironment;
+}
+
+/** Infer the TypeScript declaration for a Dhall value or type expression. */
+export const generateDhallTypes = async (
+  source: string,
+  options: GenerateDhallTypesOptions
+): Promise<GeneratedTypes> => {
+  await ensureEngine();
+  try {
+    const inferred = await typeCheck(source, {
+      sourcePath: options.sourcePath,
+      environment: options.environment,
+    });
+    if (!inferred.ok) {
+      throw createLoadError({
+        code: "PARSE_ERROR",
+        message: formatDiagnostic(inferred.error),
+        source: options.sourcePath,
+        format: "dhall",
+        cause: inferred.error,
+      });
+    }
+    const typeSource = inferred.value === "Type" ? source : inferred.value;
+    const generated = await generateTypesFromSource(typeSource, {
+      name: options.name,
+      validator: options.validator,
+      sourcePath: options.sourcePath,
+      environment: options.environment,
+    });
+    if (!generated.ok) {
+      throw createLoadError({
+        code: "PARSE_ERROR",
+        message: formatDiagnostic(generated.error),
+        source: options.sourcePath,
+        format: "dhall",
+        cause: generated.error,
+      });
+    }
+    return generated.value;
+  } catch (error) {
+    if (error instanceof Error && error.name === "LoadError") throw error;
+    throw createLoadError({
+      code: "PARSE_ERROR",
+      message: `Failed to generate types from Dhall: ${error instanceof Error ? error.message : String(error)}`,
+      source: options.sourcePath,
       format: "dhall",
       cause: error,
     });

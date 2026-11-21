@@ -11,9 +11,12 @@ export { parseXml } from "./parsers/xml.js";
 export { parseHtml } from "./parsers/html.js";
 export { parseMd } from "./parsers/md.js";
 export { parseCbor } from "./parsers/cbor.js";
-export { createDhallParser, createDhallStringifier } from "./parsers/dhall.js";
+export { createDhallParser, createDhallStringifier, generateDhallTypes } from "./parsers/dhall.js";
+export { generateTypesFromDhall } from "./dhall-types.js";
 
 export type {
+  DhallTypesOptions,
+  GeneratedDhallTypes,
   Format,
   LoadInput,
   LoadOptions,

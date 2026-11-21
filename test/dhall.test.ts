@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { load, parse, stringify, loadDhall, parseDhall, stringifyDhall } from "../src/index.js";
+import { load, parse, stringify, loadDhall, parseDhall, stringifyDhall, generateTypesFromDhall } from "../src/index.js";
 
 const fixtures = resolve(import.meta.dir, "fixtures/local");
 
@@ -31,6 +31,15 @@ describe("dhall (wasm engine, no opt-in flag)", () => {
     expect(text).toContain('name = "dhall"');
     await expect(parse(text as string, "dhall")).resolves.toEqual({ count: 2, name: "dhall" });
     expect(await stringifyDhall({ ok: true })).toContain("ok = True");
+  });
+
+  test("generates TypeScript declarations from a dhall path", async () => {
+    const generated = await generateTypesFromDhall(join(fixtures, "script.dhall"), { name: "Config" });
+    expect(generated.declaration).toContain("export interface Config");
+    expect(generated.declaration).toContain("readonly count: number;");
+
+    const typed = await load<{ name: string; count: number }>(join(fixtures, "script.dhall"));
+    expect(typed.count).toBe(2);
   });
 
   test("maps engine diagnostics to PARSE_ERROR", async () => {
